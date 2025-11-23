@@ -1,9 +1,12 @@
+import { ME } from "@core/config/constants";
 import chalk from "chalk";
 import { program } from "commander";
 import figlet from "figlet";
+
+import { setupAuthCommands } from "@cli/commands/auth.command";
+import { setupChatCommands } from "@cli/commands/chat.command";
+
 import PackageJson from "../../../package.json" assert { type: "json" };
-import { setupAuthCommands } from "../../cli/commands/index.js";
-import { ME } from "../config/constants.js";
 
 export class CLIService {
   constructor() {
@@ -35,6 +38,7 @@ export class CLIService {
 
     // Setup command groups
     setupAuthCommands(program);
+    setupChatCommands(program);
 
     // Exit command
     program

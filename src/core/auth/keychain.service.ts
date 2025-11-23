@@ -1,6 +1,6 @@
+import { APP_NAME } from "@core/config/constants";
 import { deletePassword, getPassword, setPassword } from "cross-keychain";
-import type { AuthTokens } from "../../types/auth.types.js";
-import { APP_NAME } from "../config/constants.js";
+import type { AuthTokens } from "types";
 
 export class KeychainService {
   private readonly serviceName = APP_NAME;
@@ -38,10 +38,9 @@ export class KeychainService {
     const tokens = await this.getTokens();
     if (!tokens) return false;
 
-    const now = Date.now();
-    const expiresAt = tokens.expires_in;
+    const now = new Date().getTime();
+    const expiresAt = now + new Date(tokens.expires_in).getTime() * 1000;
 
-    // Check if token expires in less than 5 minutes
     return expiresAt - now > 5 * 60 * 1000;
   }
 }

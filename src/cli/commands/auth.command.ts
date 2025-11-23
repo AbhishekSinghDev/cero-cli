@@ -1,6 +1,6 @@
+import { loginPrompt, logoutPrompt } from "@cli/prompts/auth.prompts";
+import { AuthService } from "@core/auth/auth.service";
 import { Command } from "commander";
-import { AuthService } from "../../core/auth/auth.service.js";
-import { loginPrompt, logoutPrompt } from "../prompts/auth.prompts.js";
 
 export function setupAuthCommands(program: Command): void {
   const authService = new AuthService();

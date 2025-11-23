@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { CLIService } from "./core/cli/cli.service";
+import { CLIService } from "@core/cli/cli.service";
 
 async function main() {
   const cli = new CLIService();

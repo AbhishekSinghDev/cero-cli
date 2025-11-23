@@ -1,100 +1,114 @@
-import * as clack from "@clack/prompts";
+import type { AuthService } from "@core/auth/auth.service";
+import boxen from "boxen";
 import chalk from "chalk";
-import { AuthService } from "../../core/auth/auth.service.js";
+import ora from "ora";
+import readline from "readline";
+
+function askConfirmation(question: string): Promise<boolean> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(
+      `${chalk.cyan("?")} ${chalk.bold(question)} ${chalk.dim("(Y/n)")} `,
+      (answer) => {
+        rl.close();
+        resolve(answer.toLowerCase() !== "n");
+      }
+    );
+  });
+}
 
 export async function loginPrompt(authService: AuthService): Promise<void> {
-  clack.intro(chalk.cyan.bold("🔐 Authentication Procedure"));
+  console.log(chalk.cyan.bold("\n🔐 Authentication\n"));
 
   const isAuthenticated = await authService.isAuthenticated();
   if (isAuthenticated) {
-    clack.log.success("You are already logged in!");
-    clack.outro(chalk.green("You're all set!"));
+    console.log(chalk.green("✓ Already authenticated"));
+    console.log(chalk.dim("You're all set!\n"));
     return;
   }
 
   let deviceAuth;
-  const spinner = clack.spinner();
+  const spinner = ora(chalk.dim("Requesting device authorization...")).start();
 
   try {
-    spinner.start("Requesting device authorization");
     deviceAuth = await authService.requestDeviceCode();
-    spinner.stop("Authorization request successful");
+    spinner.succeed(chalk.green("Authorization code received"));
   } catch (error) {
-    spinner.stop("Authorization request failed");
-    clack.log.error(
+    spinner.fail(chalk.red("Authorization request failed"));
+    console.error(
       chalk.red(`Failed to request authorization: ${(error as Error).message}`)
     );
-    clack.cancel("Operation cancelled due to error.");
     process.exit(1);
   }
 
-  console.log();
+  const url =
+    deviceAuth.verification_uri_complete || deviceAuth.verification_uri;
 
-  // Authorization details section
-  clack.log.info(chalk.white.bold("Please authorize this device to continue"));
   console.log(
-    chalk.gray("  Visit: ") +
-      chalk.cyan.underline(
-        deviceAuth.verification_uri_complete || deviceAuth.verification_uri
-      )
-  );
-  console.log(
-    chalk.gray("  Code:  ") + chalk.yellow.bold(deviceAuth.user_code)
-  );
-  console.log();
-
-  // User interaction section
-  const shouldOpen = await clack.confirm({
-    message: "Open authorization URL in your browser?",
-    initialValue: true,
-  });
-
-  if (clack.isCancel(shouldOpen)) {
-    clack.cancel("Operation cancelled.");
-    process.exit(0);
-  }
-
-  if (shouldOpen) {
-    const urlToOpen =
-      deviceAuth.verification_uri_complete || deviceAuth.verification_uri;
-    await authService.openAuthorizationUrl(urlToOpen);
-  }
-
-  console.log();
-  clack.log.step(
-    chalk.gray(
-      `Waiting for authorization (expires in ${Math.floor(
-        deviceAuth.expires_in / 60
-      )} minutes)`
+    boxen(
+      `${chalk.bold("Visit:")} ${chalk.cyan.underline(url)}\n` +
+        `${chalk.bold("Code: ")} ${chalk.yellow.bold(
+          deviceAuth.user_code
+        )}\n\n` +
+        chalk.dim(
+          `Expires in ${Math.floor(deviceAuth.expires_in / 60)} minutes`
+        ),
+      {
+        padding: 1,
+        margin: 1,
+        borderStyle: "round",
+        borderColor: "cyan",
+        title: "Authorization Required",
+        titleAlignment: "center",
+      }
     )
   );
 
-  await authService.pollForToken(deviceAuth.device_code);
-}
+  const shouldOpen = await askConfirmation(
+    "Open authorization URL in your browser?"
+  );
 
-export async function logoutPrompt(authService: AuthService): Promise<void> {
-  clack.intro(chalk.cyan.bold("Logout from Cero"));
+  const pollSpinner = ora(chalk.dim("Waiting for authorization...")).start();
 
-  const confirmed = await clack.confirm({
-    message: "Are you sure you want to logout?",
-    initialValue: false,
-  });
-
-  if (clack.isCancel(confirmed)) {
-    clack.cancel("Logout cancelled.");
-    process.exit(0);
-  }
-
-  if (!confirmed) {
-    clack.outro(chalk.yellow("Logout cancelled."));
-    return;
+  if (shouldOpen) {
+    await authService.openAuthorizationUrl(url);
+    pollSpinner.text = chalk.dim(
+      "Browser opened, waiting for authorization..."
+    );
   }
 
   try {
-    await authService.logout();
-    clack.outro(chalk.green("✓ Logged out successfully"));
+    await authService.pollForToken(deviceAuth.device_code);
+    pollSpinner.succeed(chalk.green("Successfully authenticated!"));
+    console.log(chalk.dim("\nYou're all set!\n"));
   } catch (error) {
-    clack.log.error(chalk.red((error as Error).message));
+    pollSpinner.fail(chalk.red("Authentication failed"));
+    throw error;
+  }
+}
+
+export async function logoutPrompt(authService: AuthService): Promise<void> {
+  console.log(chalk.cyan.bold("\n👋 Logout\n"));
+
+  const confirmed = await askConfirmation("Are you sure you want to logout?");
+
+  if (!confirmed) {
+    console.log(chalk.dim("Logout cancelled.\n"));
+    return;
+  }
+
+  const spinner = ora(chalk.dim("Logging out...")).start();
+  try {
+    await authService.logout();
+    spinner.succeed(chalk.green("Logged out successfully"));
+    console.log(chalk.dim("See you next time!\n"));
+  } catch (error) {
+    spinner.fail(chalk.red("Logout failed"));
+    console.error(chalk.red((error as Error).message));
     process.exit(1);
   }
 }

@@ -1,13 +1,12 @@
-import * as clack from "@clack/prompts";
+import { ConfigService } from "@core/config/config.service";
 import chalk from "chalk";
-import { ConfigService } from "../core/config/config.service";
-import type { Result } from "../types/util.type";
+import type { Result } from "types/util.type";
 
 const configService = ConfigService.getInstance();
 
 export function handleError(error: Error, context?: string): never {
   const message = context ? `${context}: ${error.message}` : error.message;
-  clack.log.error(chalk.red(message));
+  console.error(chalk.red("✖ " + message));
 
   if (configService.isDevelopment) {
     console.error(error.stack);
